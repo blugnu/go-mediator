@@ -1,4 +1,4 @@
-package task
+package tasks
 
 type Task[T comparable, R any] struct {
 	handler func(T) (R, error)
@@ -6,7 +6,7 @@ type Task[T comparable, R any] struct {
 	result  map[T]*result[R]
 }
 
-func Buffered[T comparable, R any](handler func(T) (R, error), n int) Task[T, R] {
+func BufferedTask[T comparable, R any](handler func(T) (R, error), n int) Task[T, R] {
 	return Task[T, R]{
 		handler: handler,
 		queue:   make(chan T, n),
@@ -14,7 +14,7 @@ func Buffered[T comparable, R any](handler func(T) (R, error), n int) Task[T, R]
 	}
 }
 
-func Unbuffered[T comparable, R any](handler func(T) (R, error)) Task[T, R] {
+func UnbufferedTask[T comparable, R any](handler func(T) (R, error)) Task[T, R] {
 	return Task[T, R]{
 		handler: handler,
 		queue:   make(chan T),
@@ -37,7 +37,7 @@ func (task *Task[T, R]) StartListener() {
 }
 
 func (task *Task[T, R]) StartListenerWith(handler func(T) (R, error)) {
-	l := listener[T, R]{
+	l := taskListener[T, R]{
 		handler: handler,
 		task:    task,
 	}

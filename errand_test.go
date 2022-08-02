@@ -1,4 +1,4 @@
-package errand
+package tasks
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ func void(i int) error { return nil }
 
 func TestThatABufferedTaskReturnsNilWhenBufferIsFull(t *testing.T) {
 	// ARRANGE
-	errand := Buffered(void, 3)
+	errand := BufferedErrand(void, 3)
 
 	// ACT
 	// With no listener started the Enqueue()ing will fill the buffer
