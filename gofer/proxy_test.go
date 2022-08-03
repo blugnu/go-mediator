@@ -1,21 +1,25 @@
-package tasks
+package gofer
 
 import (
+	"context"
 	"testing"
 )
 
-func void(i int) error { return nil }
+type nothing struct{}
+
+func void(ctx context.Context, i int) (*nothing, error) { return nil, nil }
 
 func TestThatABufferedTaskReturnsNilWhenBufferIsFull(t *testing.T) {
 	// ARRANGE
-	errand := BufferedErrand(void, 3)
+	Courier := Queue(void, 3)
+	ctx := context.Background()
 
 	// ACT
 	// With no listener started the Enqueue()ing will fill the buffer
-	c1 := errand.Enqueue(1)
-	c2 := errand.Enqueue(2)
-	c3 := errand.Enqueue(3)
-	c4 := errand.Enqueue(4)
+	c1, _ := Courier.Enqueue(ctx, 1)
+	c2, _ := Courier.Enqueue(ctx, 2)
+	c3, _ := Courier.Enqueue(ctx, 3)
+	c4, _ := Courier.Enqueue(ctx, 4)
 
 	// ASSERT
 	if c1 == nil || c2 == nil || c3 == nil {

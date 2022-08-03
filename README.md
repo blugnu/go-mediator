@@ -64,14 +64,14 @@ This package uses generics and therefore requires GoLang 1.18 or later.
 
 | Term | Meaning |
 | ---- | ------- |
-| errand | A task performed by a function that returns only an error (or nil) |
-| task | A task performed by a function that returns some value _and_ and error (or nil).<br><br>`Task` may also be used to refer to an `errand` where the task has already been established to _be_ an errand.|
+| Courier | A task performed by a function that returns only an error (or nil) |
+| task | A task performed by a function that returns some value _and_ and error (or nil).<br><br>`Task` may also be used to refer to an `Courier` where the task has already been established to _be_ an Courier.|
 
-In simple terms: an `errand` is a `task` but not all `tasks` are `errands`. |
+In simple terms: an `Courier` is a `task` but not all `tasks` are `Couriers`. |
 
 ---
 ## Limitations
 
 - Task functions must accept only a single argument and return an error (or nil) **or** some value _and_ an error (or nil).
 
-- Separate packages are provided for errands and tasks
+- Separate packages are provided for Couriers and tasks
