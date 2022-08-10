@@ -1,77 +1,80 @@
-# go-tasks
+# go-mediator
+A lightweight implementation of the Mediator Pattern for goLang, inspired by the MediatR framework for .net.
 
-A simple package for running tasks (functions) over channels.  Task handlers are simple functions.
+# Concepts
+`go-mediator` treats `Commands` and `Queries` differently.  Whilst both accept a `context` and a `Requests` value, a `Command` returns only an `error` whilst a `Query` returns some result value in addition to, or instead of, an `error`.  If `Command` and `Query` were simple funcs their declarations would differ thus:
 
-## Basic Operation
+```go
+func Command(context.Context, Request) error
+func Query(context.Context, Request) (Result, error)
+```
 
-Tasks are created by implementing a function and initialising a variable with either a `Buffered` or `Unbuffered` queue:
+Treating them differently allows code that uses `go-mediator` to benefit from type inference to simply calls made to `Commands` in a way that isn't possible with a `Query`. 
+
+# The Mediator Pattern
+The Mediator Pattern is a simple pattern that uses a 3rd-party (the mediator) to facilitate communication between two other parties without those two other parties having knowledge of each other.
+
+It is a powerful pattern for achieving loosely coupled code that might otherwise have tight-coupling in the form of direct function calls.
+
+# How It Works
+A Command or Query Handler is registered with the mediator.  Commands and Query handlers are generic interfaces, accepting a request `type` param that the handler is capable of responding to:
 
 ```golang
-package foo
+    type CommandHandler[TRequest any] interface {
+        Execute(context.Context, TRequest) error
+    }
 
-import "github.com/deltics/go-tasks"
+    type QueryHandler[TRequest any, TResult any] interface {
+        Execute(context.Context, TRequest) (TResult, error)
+    }
+```
 
-var Task = task.Buffered(fooFunc)
+Handlers are registered by passing an instantiated struct implementing the required interface to a registration function.  Registration functions are generic functions and the go type system therefore ensures that when registering handler for a specific type, the correct request type must be specified on the registration type parameter:
 
-func fooFunc(i int) error {
-    // Do something magical with `i`
+```golang
+    RegisterCommandHandler[TRequest](handler CommandHandler[TRequest])
+
+    RegisterQueryHandler[TRequest, TResult](handler QueryHandler[TRequest, TResult])
+```
+
+When registering a command handler, go is able to infer the `Request` type, so this need not be explicit:
+
+```golang
+    mediator.RegisterCommandHandler(&FooHandler{})
+```
+
+Unfortunately this is not (currently?) possible with Query handlers, so registration of those requires that the type parameters be specified on the registration function, e.g:
+
+```golang
+    mediator.RegisterQueryHandler[FooRequest, string](&FooHandler{})
+```
+
+Handlers are implemented as lightweight interfaces providing an `Execute()` method corresponding to the Command or Query signature accepting a `context` and that Request type.  The request and handler types for the above registration example might look similar to this:
+
+```golang
+type FooRequest struct {
+    Foo string
+}
+
+type FooHandler struct {}
+
+func (*FooHandler) Execute(ctx context.Context, req *FooRequest) error {
+    err := FooTheRequest(ctx, req.Foo)
+    return err
 }
 ```
-Tasks are invoked by enqueuing values to be processed by a task.  The result of enqueuing a request is a channel over which any error is received, or a result channel and an error channel:
+
+Code wishing to have a Command or Query performed, builds a `Request` of the appropriate type and sends that request to the mediator.  Continuing the example above, a requestor would do something similar to:
 
 ```golang
-    // When a Task yields a result and/or an error
-    resultChan, errChan := foo.Task.Enqueue(42)
-
-    // NOTE: select{} is potentially problematic here since it will yield
-    //  ONLY the result OR the error, depending on which is received first.
-    result := <-resultChan
-    err := <-errChan
-    if err != nil {
-        log.Errorf("Unexpected error: %s", err)
-    }
-
-    // When a Task yields only an error
-    errChan := foo.Task.Enqueue(42)
-    err := <-errChan
-    if err != nil {
-        log.Errorf("Unexpected error: %s", err)
-    }
+    err := mediator.Command(ctx, &FooRequest{ Foo: "something nice" })
 ```
 
-**IMPORTANT:** `Enqueue()` is **non**-blocking.  If the request cannot be enqueued (e.g a buffered task queue is full) then `nil` channels are returned.
+The mediator identifies the appropriate handler for that request and passes the request on to that handler, returning the result back to the original requestor.
 
-To queue a request and block until that request has been enqueued, use `MustEnqueue()`.
+The above example illustrate that the go type system allows go to 
 
----
-
-### Q: Why?
-Why run a function via a channel rather than simply calling it directly?
-
-1. Loose-coupling; e.g. between service ingress and functions that are performed in response to requests over that ingress
-
-2. Improve testability; ingress behaviour can be tested using a mocked handler for any required tasks 
-
-3. Scalability; optionally scaling-out functions by launching multiple listeners
-
-### Required Go Version
-
-This package uses generics and therefore requires GoLang 1.18 or later.
-
-
-### Terminology
-
-
-| Term | Meaning |
-| ---- | ------- |
-| Courier | A task performed by a function that returns only an error (or nil) |
-| task | A task performed by a function that returns some value _and_ and error (or nil).<br><br>`Task` may also be used to refer to an `Courier` where the task has already been established to _be_ an Courier.|
-
-In simple terms: an `Courier` is a `task` but not all `tasks` are `Couriers`. |
-
----
-## Limitations
-
-- Task functions must accept only a single argument and return an error (or nil) **or** some value _and_ an error (or nil).
-
-- Separate packages are provided for Couriers and tasks
+# What It Is NOT
+- Mediator is not a message queue
+- Mediator is not asynchronous
+- Mediator is not complicated!

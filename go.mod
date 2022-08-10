@@ -1,3 +1,3 @@
-module github.com/deltics/go-tasks
+module mediator
 
 go 1.18
