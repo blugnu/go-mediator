@@ -33,9 +33,11 @@ func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Co
 
 func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 	// ARRANGE
+
 	r := RegisterQueryHandler[qryRequest, string](&qryHandler{})
 
 	// ACT
+
 	wanted := 1
 	got := len(queryHandlers)
 	if wanted != got {
@@ -44,6 +46,7 @@ func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 	r.Remove()
 
 	// ASSERT
+
 	wanted = 0
 	got = len(queryHandlers)
 	if wanted != got {
@@ -52,9 +55,9 @@ func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 }
 
 func TestThatRegisterQueryHandlerPanicsWhenHandlerIsAlreadyRegisteredForAType(t *testing.T) {
-	// ARRANGE (and ASSERT, since we're testing for a panic() :) )
+	// ARRANGE
 
-	// Setup the panic test (deferred ASSERT)
+	// 'arrange' the deferred ALERT since we're testing for a panic!
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("did not panic")
@@ -66,9 +69,10 @@ func TestThatRegisterQueryHandlerPanicsWhenHandlerIsAlreadyRegisteredForAType(t 
 	defer r.Remove()
 
 	// ACT - attempt to register another handler for the same request type
+
 	RegisterQueryHandler[qryRequest, string](&qryDuplicate{})
 
-	// ASSERT (deferred)
+	// ASSERT (deferred, see above)
 }
 
 func TestThatQueryReturnsExpectedErrorWhenRequestHandlerIsNotRegistered(t *testing.T) {
@@ -76,9 +80,11 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerIsNotRegistered(t *testi
 	// no-op
 
 	// ACT
+
 	_, err := Query[qryRequest, bool](context.Background(), qryRequest{})
 
 	// ASSERT
+
 	if _, ok := err.(*ErrNoHandler); !ok {
 		t.Errorf("wanted *mediator.ErrNoHandler, got %T", err)
 	}
@@ -86,15 +92,18 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerIsNotRegistered(t *testi
 
 func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *testing.T) {
 	// ARRANGE
+
 	// Register a handler returning a string
 	r := RegisterQueryHandler[qryRequest, string](&qryHandler{})
 	defer r.Remove()
 
 	// ACT
+
 	// Request a Query returning a bool
 	_, err := Query[qryRequest, bool](context.Background(), qryRequest{})
 
 	// ASSERT
+
 	if _, ok := err.(*ErrInvalidHandler); !ok {
 		t.Errorf("wanted *mediator.ErrInvalidHandler, got %T", err)
 	}
@@ -102,13 +111,16 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *tes
 
 func TestThatQueryValidatorErrorIsReturnedAsErrBadRequest(t *testing.T) {
 	// ARRANGE
+
 	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningError{})
 	defer reg.Remove()
 
 	// ACT
+
 	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
 
 	// ASSERT
+
 	if _, ok := err.(*ErrBadRequest); !ok {
 		t.Errorf("wanted %T, got %T (%[1]q)", new(ErrBadRequest), err)
 	}
@@ -116,14 +128,17 @@ func TestThatQueryValidatorErrorIsReturnedAsErrBadRequest(t *testing.T) {
 
 func TestThatQueryValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
 	// ARRANGE
+
 	badRequest := &ErrBadRequest{}
 	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningErrBadRequest{})
 	defer reg.Remove()
 
 	// ACT
+
 	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
 
 	// ASSERT
+
 	bre, ok := err.(*ErrBadRequest)
 	if !ok {
 		wanted := badRequest
