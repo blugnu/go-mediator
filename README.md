@@ -1,14 +1,14 @@
 # go-mediator
-A lightweight implementation of the Mediator Pattern for goLang, inspired by the MediatR framework for .net.
+A lightweight implementation of the [Mediator Pattern](https://en.wikipedia.org/wiki/Mediator_pattern) for `goLang`, inspired by [jbogard's MediatR framework for .net](https://github.com/jbogard/MediatR).
 
 ## Mediator Pattern
-[The Mediator Pattern](https://en.wikipedia.org/wiki/Mediator_pattern) is a simple pattern that uses a 3rd-party (the mediator) to facilitate communication between two other parties without them requiring knowledge of each other.
+[The Mediator](https://en.wikipedia.org/wiki/Mediator_pattern) is a simple [pattern](https://en.wikipedia.org/wiki/Software_design_pattern) that uses a 3rd-party (the mediator) to facilitate communication between two other parties without them requiring knowledge of each other.
 
 It is a powerful pattern for achieving loosely-coupled code.
 
 There are many ways to implement a mediator, from simple `func` pointers to sophisticated and complex messaging systems.
 
-`go-mediator` sits firmly at the *simple* end of that spectrum.
+`go-mediator` sits firmly at the *simple* end of that spectrum and intends staying there!
 
 ## What go-mediator Is NOT
 - `go-mediator` is not a message queue
@@ -18,40 +18,46 @@ There are many ways to implement a mediator, from simple `func` pointers to soph
 # Concepts
 `go-mediator` maintains a registry of handlers for specific request types.
 
-Requests are submitted to the `mediator` which consults a registry to locate the handler for the type of request involved which is called with the request and the results passed back to the original caller.
+Requests are submitted to the `mediator` which consults the registry to locate the handler for that request type which is then passed the request.  The results from the handler are then passed back to the original caller.
 
-`go-mediator` maintains separate handler registries for `Command` handlers and `Query` handlers.
+`go-mediator` maintains *separate* handler registries for `Command` handlers and `Query` handlers.
 
-A `Command` returns only an error, while a `Query` returns a value *and* an error:
+A `Command` handler returns only an error, while a `Query` handler returns *a value* **and** an error:
 
 ```go
+// These types are not used in go-mediator, but illustrate
+// the difference between 'Command' and 'Query'
 func Command(context.Context, Request) error
 func Query(context.Context, Request) (Result, error)
 ```
 
 Treating them differently allows code that uses `go-mediator` to benefit from type inference to simplify calls made to `Commands` in a way that isn't (currently?) possible with a `Query`.
 
-Handlers may (optionally) choose to implement validation of requests as a separate concern from the primary handler execution.
+Handlers may (*optionally*) implement validation of requests as a separate concern from the handler execution.
 
 # Getting Started
 
 ## 1. Define a Request Type
-Only one handler can be registered for any request type, so even if you have multiple requests that accept the same values you will need a distinct request type for each one.
+Only one handler can be registered for any request type; if you have different handlers that accept the same values you will need a separate and distinct request type for each one.
 
 ```go
     type FooRequest struct {
         Foo string
     }
+
+    type BarRequest struct {
+        Bar string
+    }
 ```
 
-An exception to the "*one handler per request type*" rule is that you can have separate `Command` and `Query` handlers sharing the same `request` type.  This is possible since there are separate registries for each, which cannot be confused.
+An exception to the "*one handler per request type*" rule is that you *can* have separate `Command` and `Query` handlers employing the same `request` type.
 
-**NOTE: A future update is being considered to also allow Request types to be shared by Query Handlers having different result types.** 
+**NOTE: A future update is being considered to also allow Request types to be shared by Query Handlers having different *result* types.** 
 
 ## 2. Implement a Handler Interface
-Handlers are generic interfaces with a single `Execute` method accepting a `context` and the `request` value.
+Handlers are generic interfaces with a single `Execute` method accepting a `context` and a `request`.
 
-Both `Command` and `Query` handlers accept a `TRequest` type parameter identifying the *request* type.  A `Query` handler interface additionally requires a *`TResult`* type parameter:
+Both `Command` and `Query` handlers accept a `TRequest` type parameter that identifies the type of the request value that is handled.  A `Query` handler interface additionally requires a *`TResult`* type parameter, to identify the type of the return value (in addition to any `error`):
 
 ```golang
     // The CommandHandler interface...
@@ -65,7 +71,7 @@ Both `Command` and `Query` handlers accept a `TRequest` type parameter identifyi
     }
 ```
 
-An example command handler implementation might look similar to:
+A command handler implementation would be similar to this example:
 
 ```golang
     // FooHandler is a CommandHandler (returns `error`)
@@ -77,12 +83,12 @@ An example command handler implementation might look similar to:
     }
 ```
 
-**NOTE: Since handlers are interface implementations with an underlying struct, this may be used to hold services used by the handler. This cab be useful for substituting fake or mock services when registering handlers in test code.  See more on testing further below...**
+**NOTE: Since handlers are interface implementations, the underlying struct may be used to hold services employed by the handler. This may be useful in test code for substituting fake or mock services.  See more on testing further below...**
 
 ## 3. Register the Handler
-Handlers are registered by passing an implementation of the handler interface to the appropriate registration function.
+Handlers are registered by passing the handler implementation to the appropriate registration function.
 
-The registration functions are generic functions with the same `TRequest` and `TResult` type parameters (for `Query` handlers) as the corresponding handlers.  The go type system is then able to ensure that the request types correspond:
+The registration functions are generic functions with the same `TRequest` type (and `TResult` type for `Query` handlers) as the corresponding handler.  The `go` type system then ensures that the handler supplied is valid for those types:
 
 ```golang
     RegisterCommandHandler[FooRequest](&FooHandler{})
@@ -91,7 +97,7 @@ The registration functions are generic functions with the same `TRequest` and `T
 ```
 
 ## 4. (Optional) Implement a RequestValidator
-In addition to the `Execute()` method of the `Command` or `Query` handler interface, handlers may also choose to implement the `RequestValidator` interface:
+In addition to the `Execute()` method of the `Command` or `Query` handler interface, handlers may *optionally* implement the `RequestValidator` interface:
 
 ```golang
     type RequestValidator[TRequest any] interface {
@@ -99,27 +105,37 @@ In addition to the `Execute()` method of the `Command` or `Query` handler interf
     }
 ```
 
-**If** implemented by a handler, this will be called by `mediator` *before* the `Execute()` method.  If the `Validate()` method returns an error then the `Execute` method will not be called; and the validation error is returned to the caller as n `ErrBadRequest`.
+**If** implemented by a handler, this will be called by `mediator` *before* the `Execute()` method.  If the `Validate()` method returns an error then the `Execute` method will not be called; the validation error is returned to the caller as an `ErrBadRequest`.
+
+For handlers with non-trivial request validation needs, this enables validation concerns to be separated out from the handler behaviour.
+
+
+It also ensures that request validatation failures are returned to callers as an `ErrBadRequest` error, enabling them to differentiate between these errors and more general failures in the handler.  This can be useful when making `mediator` calls from http endpoints, for example.
+
+### Returning Errors from Exexcute() vs Validate()
+An `Execute()` method can of course (and should) be explicit in returning a `mediator.ErrBadRequest{}` error when appropriate, regardless of whether a separate request validator is provided.
+
+A `RequestValidator` implementation on the other hand can return any `error` from `Validate()` and `mediator` will **ensure** this is wrapped in a `ErrBadRequest` on your behalf.  The error won't be wrapped if it is already an `ErrBadRequest`.
 
 ## 5. Send Requests to Handlers Via Mediator
-To call a `Command` or `Query`, simply construct a request of the type required and pass it to mediator using either the `Command()` or `Query()` function, according to the nature of the handler you expect to respond to the request:
+To call a `Command` or `Query`, construct a request of the required type and pass it to `mediator` using either the `Command()` or `Query()` function, as appropriate:
 
 ```golang
-    err := mediator.Command(ctx, &FooRequest{ Foo: "something nice" })
+    err := mediator.Command(ctx, &FooRequest{ Foo: "do something for me" })
 
-    err := mediator.Query[FooRequest, string](ctx, &FooRequest{ Foo: "something nice" })
+    err := mediator.Query[FooRequest, string](ctx, &FooRequest{ Foo: "get me something nice" })
 ```
 
-Notice that for `Command` requests the request type does not need to be specified - go is able to infer the type from the request parameter itself.
+Notice that for `Command` requests the request type does not need to be specified - `go` is able to infer the type from the request parameter itself.
 
-This is not possible for `Query` requests since the result type is not represented in the call.  Hence for `Query` requests bot the request and result type parameters must be identified.
+This is not (currently?) possible for `Query` requests (I believe because the result type is not represented in the parameters).  Hence for `Query` requests both the request and result type parameters must be identified.
 
 # Alternative Result Handling
 Results other than errors may be returned by a `Command` handler by using a pointed to a struct for the request type.
 
-The handler may then manipulate the members of the struct, including ones provided explicitly for the purpose of "returning" a value.
+The handler may then manipulate the members of the request struct, ideally limited to ones provided explicitly for the purpose of "returning" a value (or values).
 
-This avoids the need to specify request and result types when calling a Query via the mediator but at the expense of losing the usual go result, error pattern when calling functions:
+This avoids using a `Query` and the need to specify request and result types everywhere, but at the expense of the familiar `result, error` pattern:
 
 ```golang
     result, err := mediator.Query[FooRequest, string](FooRequest{})
@@ -141,9 +157,13 @@ Might become something similar to:
     result := request.Result
 ```
 
+A bigger issue is that careful attention must be paid to such handlers receiving their requests *by reference*.  If passed *by value*, any updates to the request members will be applied to a *copy* of the request, **not** the one held by the original caller. 
+
+It is also not always immediately clear that this is the intended use of such requests, so consider carefully whether the syntactic streamlining is worth these trade-offs.
+
 This is not to either recommend or condemn such an approach, merely to highlight that it is possible.
 
-Note however that careful attention must be paid to such handlers receiving their requests *by reference*.  If passed *by value*, any updates to the request members will be applied to a *copy* of the request, **not** the one held by the original caller. 
+(_In practice I use this technique occasionally myself, for communicating "side-effects", rather than returning actual "results"_)
 
 # Testing With Mediator
 
@@ -167,7 +187,7 @@ It is good practice for tests to be self-contained and independent.
 
 This means that when code under test makes mediator requests, an appropriate handler must be registered by that test and *removed* when done (so that other tests can register their own handlers for the same request type if necessary).
 
-To achieve this, the handler registration functions return a registration reference which provides a single method: `Remove()`.
+To achieve this, the handler registration functions return a registration reference, providing a single method: `Remove()`.
 
 ```golang
 func TestSomethingThatMakesMediatorRequests(t *testing.T) {

@@ -9,19 +9,26 @@ import (
 type qryRequest struct{}
 type qryHandler struct{}
 type qryDuplicate struct{}
-type qryInvalidResult struct{}
 
-func (*qryDuplicate) Execute(context.Context, qryRequest) (string, error)   { return "", nil }
-func (*qryHandler) Execute(context.Context, qryRequest) (string, error)     { return "", nil }
-func (*qryInvalidResult) Execute(context.Context, qryRequest) (bool, error) { return false, nil }
+func (*qryDuplicate) Execute(context.Context, qryRequest) (string, error) { return "", nil }
+func (*qryHandler) Execute(context.Context, qryRequest) (string, error)   { return "", nil }
 
-type qryRequestHandlerWithValidator struct{}
+type qryRequestHandlerWithValidatorReturningError struct{}
 
-func (*qryRequestHandlerWithValidator) Execute(context.Context, qryRequest) (string, error) {
+func (*qryRequestHandlerWithValidatorReturningError) Execute(context.Context, qryRequest) (string, error) {
 	return "ok", nil
 }
-func (*qryRequestHandlerWithValidator) Validate(context.Context, qryRequest) error {
+func (*qryRequestHandlerWithValidatorReturningError) Validate(context.Context, qryRequest) error {
 	return errors.New("validation failed")
+}
+
+type qryRequestHandlerWithValidatorReturningErrBadRequest struct{}
+
+func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Execute(context.Context, qryRequest) (string, error) {
+	return "ok", nil
+}
+func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Context, qryRequest) error {
+	return &ErrBadRequest{err: errors.New("already a bad request")}
 }
 
 func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
@@ -93,9 +100,9 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *tes
 	}
 }
 
-func TestThatQueryValidatorErrorIsReturnedAsABadRequest(t *testing.T) {
+func TestThatQueryValidatorErrorIsReturnedAsErrBadRequest(t *testing.T) {
 	// ARRANGE
-	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidator{})
+	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningError{})
 	defer reg.Remove()
 
 	// ACT
@@ -104,5 +111,30 @@ func TestThatQueryValidatorErrorIsReturnedAsABadRequest(t *testing.T) {
 	// ASSERT
 	if _, ok := err.(*ErrBadRequest); !ok {
 		t.Errorf("wanted %T, got %T (%[1]q)", new(ErrBadRequest), err)
+	}
+}
+
+func TestThatQueryValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
+	// ARRANGE
+	badRequest := &ErrBadRequest{}
+	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningErrBadRequest{})
+	defer reg.Remove()
+
+	// ACT
+	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
+
+	// ASSERT
+	bre, ok := err.(*ErrBadRequest)
+	if !ok {
+		wanted := badRequest
+		got := bre
+		t.Errorf("wanted %T, got %T (%[1]q)", wanted, got)
+	}
+
+	if bre.InnerError() != nil {
+		got := bre.InnerError()
+		if _, ok := got.(*ErrBadRequest); ok {
+			t.Errorf("got %T wrapping %[1]T unnecessarily", badRequest)
+		}
 	}
 }

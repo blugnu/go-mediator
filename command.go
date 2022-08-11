@@ -50,10 +50,7 @@ func Perform[TRequest any](ctx context.Context, request TRequest) error {
 	// If the handler also provides a request validator, call that first
 	// and return any error in an ErrBadRequest.
 	if validator, ok := handlerReg.(RequestValidator[TRequest]); ok {
-		err := validator.Validate(ctx, request)
-		if err != nil {
-			return &ErrBadRequest{err: err}
-		}
+		return validate(validator, ctx, request)
 	}
 
 	return handler.Execute(ctx, request)

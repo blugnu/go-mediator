@@ -48,9 +48,9 @@ func Query[TRequest any, TResult any](ctx context.Context, request TRequest) (TR
 	// If the handler also provides a request validator, call that first
 	// and return any error in an ErrBadRequest.
 	if validator, ok := handlerReg.(RequestValidator[TRequest]); ok {
-		err := validator.Validate(ctx, request)
+		err := validate(validator, ctx, request)
 		if err != nil {
-			return *new(TResult), &ErrBadRequest{err: err}
+			return *new(TResult), err
 		}
 	}
 

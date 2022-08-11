@@ -30,5 +30,9 @@ type ErrBadRequest struct {
 }
 
 func (e *ErrBadRequest) Error() string {
-	return fmt.Sprintf("bad request: %s", e.err)
+	return fmt.Sprintf("bad request: %v", e.err)
+}
+
+func (e *ErrBadRequest) InnerError() error {
+	return e.err
 }

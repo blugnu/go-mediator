@@ -29,11 +29,22 @@ func (*cmdRequestByValueHandler) Execute(ctx context.Context, req cmdRequestWith
 	return nil
 }
 
-type cmdRequestHandlerWithValidator struct{}
+type cmdRequestHandlerWithValidatorReturningError struct{}
 
-func (*cmdRequestHandlerWithValidator) Execute(context.Context, cmdRequest) error { return nil }
-func (*cmdRequestHandlerWithValidator) Validate(context.Context, cmdRequest) error {
+func (*cmdRequestHandlerWithValidatorReturningError) Execute(context.Context, cmdRequest) error {
+	return nil
+}
+func (*cmdRequestHandlerWithValidatorReturningError) Validate(context.Context, cmdRequest) error {
 	return errors.New("validation failed")
+}
+
+type cmdRequestHandlerWithValidatorReturningErrBadRequest struct{}
+
+func (*cmdRequestHandlerWithValidatorReturningErrBadRequest) Execute(context.Context, cmdRequest) error {
+	return nil
+}
+func (*cmdRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Context, cmdRequest) error {
+	return &ErrBadRequest{err: errors.New("already a bad request")}
 }
 
 func TestThatTheRegistrationInterfaceRemovesTheHandler(t *testing.T) {
@@ -123,9 +134,9 @@ func TestThatResultsCannotBeReturnedViaFieldsInAByValueRequestType(t *testing.T)
 	}
 }
 
-func TestThatCommandValidatorErrorIsReturnedAsABadRequest(t *testing.T) {
+func TestThatCommandValidatorErrorIsReturnedAsErrBadRequest(t *testing.T) {
 	// ARRANGE
-	reg := RegisterCommandHandler[cmdRequest](&cmdRequestHandlerWithValidator{})
+	reg := RegisterCommandHandler[cmdRequest](&cmdRequestHandlerWithValidatorReturningError{})
 	defer reg.Remove()
 
 	// ACT
@@ -134,5 +145,30 @@ func TestThatCommandValidatorErrorIsReturnedAsABadRequest(t *testing.T) {
 	// ASSERT
 	if _, ok := err.(*ErrBadRequest); !ok {
 		t.Errorf("wanted %T, got %T (%q)", new(ErrBadRequest), err, err)
+	}
+}
+
+func TestThatCommandValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
+	// ARRANGE
+	badRequest := &ErrBadRequest{}
+	reg := RegisterCommandHandler[cmdRequest](&cmdRequestHandlerWithValidatorReturningErrBadRequest{})
+	defer reg.Remove()
+
+	// ACT
+	err := Perform(context.Background(), cmdRequest{})
+
+	// ASSERT
+	bre, ok := err.(*ErrBadRequest)
+	if !ok {
+		wanted := badRequest
+		got := bre
+		t.Errorf("wanted %T, got %T (%[1]q)", wanted, got)
+	}
+
+	if bre.InnerError() != nil {
+		got := bre.InnerError()
+		if _, ok := got.(*ErrBadRequest); ok {
+			t.Errorf("got %T wrapping %[1]T unnecessarily", badRequest)
+		}
 	}
 }
