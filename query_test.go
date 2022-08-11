@@ -2,6 +2,7 @@ package mediator
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -13,6 +14,15 @@ type qryInvalidResult struct{}
 func (*qryDuplicate) Execute(context.Context, qryRequest) (string, error)   { return "", nil }
 func (*qryHandler) Execute(context.Context, qryRequest) (string, error)     { return "", nil }
 func (*qryInvalidResult) Execute(context.Context, qryRequest) (bool, error) { return false, nil }
+
+type qryRequestHandlerWithValidator struct{}
+
+func (*qryRequestHandlerWithValidator) Execute(context.Context, qryRequest) (string, error) {
+	return "ok", nil
+}
+func (*qryRequestHandlerWithValidator) Validate(context.Context, qryRequest) error {
+	return errors.New("validation failed")
+}
 
 func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 	// ARRANGE
@@ -80,5 +90,19 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *tes
 	// ASSERT
 	if _, ok := err.(*ErrInvalidHandler); !ok {
 		t.Errorf("wanted *mediator.ErrInvalidHandler, got %T", err)
+	}
+}
+
+func TestThatQueryValidatorErrorIsReturnedAsABadRequest(t *testing.T) {
+	// ARRANGE
+	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidator{})
+	defer reg.Remove()
+
+	// ACT
+	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
+
+	// ASSERT
+	if _, ok := err.(*ErrBadRequest); !ok {
+		t.Errorf("wanted %T, got %T (%[1]q)", new(ErrBadRequest), err)
 	}
 }

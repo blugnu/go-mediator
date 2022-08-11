@@ -5,12 +5,8 @@ import "reflect"
 var commandHandlers = map[reflect.Type]interface{}{}
 var queryHandlers = map[reflect.Type]interface{}{}
 
-// reg is returned from RegisterHandler calls.  It is typically ignored
-// when registering production handlers but may be used in test handlers
-// to remove a handler registration once the test is complete:
-//
-//   reg := mediator.RegisterCommandHandler[*some.Request](&mock.SomeFake{})
-//   defer reg.Remove()
+// reg captures a registered request type and a reference to the handler
+// registry in which the registration for that type was recorded
 type reg struct {
 	handlers map[reflect.Type]interface{}
 	rqt      reflect.Type

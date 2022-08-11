@@ -6,10 +6,6 @@ import (
 	"reflect"
 )
 
-type CommandHandler[TRequest any] interface {
-	Execute(context.Context, TRequest) error
-}
-
 // RegisterCommandHandler registers the specified handler for a particular request type.
 //
 // If a handler is already registered for that type the function will panic, otherwise
@@ -31,8 +27,10 @@ func RegisterCommandHandler[TRequest any](handler CommandHandler[TRequest]) *reg
 	}
 }
 
-// Perform sends the specified request and context to the registered Command
-// handler for the request type.
+// Perform sends the specified request and context to the registered Perform
+// handler for the request type.   If the Command handler implements a
+// RequestValidator, the Command is only executed if the request passes
+// validation.
 func Perform[TRequest any](ctx context.Context, request TRequest) error {
 	rqt := reflect.TypeOf(request)
 
@@ -47,6 +45,15 @@ func Perform[TRequest any](ctx context.Context, request TRequest) error {
 		// prevent the registration of a handler of the wrong type.
 		// But just in case...
 		return &ErrInvalidHandler{handler: handler, request: request}
+	}
+
+	// If the handler also provides a request validator, call that first
+	// and return any error in an ErrBadRequest.
+	if validator, ok := handlerReg.(RequestValidator[TRequest]); ok {
+		err := validator.Validate(ctx, request)
+		if err != nil {
+			return &ErrBadRequest{err: err}
+		}
 	}
 
 	return handler.Execute(ctx, request)

@@ -6,10 +6,6 @@ import (
 	"reflect"
 )
 
-type QueryHandler[TRequest any, TResult any] interface {
-	Execute(context.Context, TRequest) (TResult, error)
-}
-
 // RegisterQueryHandler registers the specified handler for a particular request type
 // and returning a particular result type.
 //
@@ -32,8 +28,10 @@ func RegisterQueryHandler[TRequest any, TResult any](handler QueryHandler[TReque
 	}
 }
 
-// Perform sends the specified request and context to the registered Query
-// handler and returns the result and error from that handler.
+// Query sends the specified request and context to the registered Query
+// handler and returns the result and error from that handler.  If the
+// Query handler implements a RequestValidator, the Query is only executed
+// if the request passes validation.
 func Query[TRequest any, TResult any](ctx context.Context, request TRequest) (TResult, error) {
 	rqt := reflect.TypeOf(request)
 
@@ -45,6 +43,15 @@ func Query[TRequest any, TResult any](ctx context.Context, request TRequest) (TR
 	handler, ok := handlerReg.(QueryHandler[TRequest, TResult])
 	if !ok {
 		return *new(TResult), &ErrInvalidHandler{request: request, handler: handler}
+	}
+
+	// If the handler also provides a request validator, call that first
+	// and return any error in an ErrBadRequest.
+	if validator, ok := handlerReg.(RequestValidator[TRequest]); ok {
+		err := validator.Validate(ctx, request)
+		if err != nil {
+			return *new(TResult), &ErrBadRequest{err: err}
+		}
 	}
 
 	response, err := handler.Execute(ctx, request)
