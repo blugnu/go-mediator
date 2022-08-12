@@ -2,6 +2,24 @@ package mediator
 
 import "context"
 
+type handlerType int
+
+const (
+	command handlerType = iota
+	query
+)
+
+func (t handlerType) Name() string {
+	switch t {
+	case command:
+		return "command"
+	case query:
+		return "query"
+	default:
+		return "<undefined>"
+	}
+}
+
 // CommandHandler[TRequest] is the interface to be implemented by Command handlers
 type CommandHandler[TRequest any] interface {
 	Execute(context.Context, TRequest) error

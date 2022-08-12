@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+var errCmdExecution = errors.New("execution failed")
+
 type cmdRequest struct{}
 type cmdRequestHandler struct{}
 type cmdRequestCompatibleHandler struct{}
@@ -29,22 +31,40 @@ func (*cmdRequestByValueHandler) Execute(ctx context.Context, req cmdRequestWith
 	return nil
 }
 
-type cmdRequestHandlerWithValidatorReturningError struct{}
+type cmdRequestHandlerWithSuccesfulValidatorAndExecution struct{}
 
-func (*cmdRequestHandlerWithValidatorReturningError) Execute(context.Context, cmdRequest) error {
+func (*cmdRequestHandlerWithSuccesfulValidatorAndExecution) Validate(context.Context, cmdRequest) error {
 	return nil
 }
+func (*cmdRequestHandlerWithSuccesfulValidatorAndExecution) Execute(context.Context, cmdRequest) error {
+	return nil
+}
+
+type cmdRequestHandlerWithSuccesfulValidatorAndExecutionError struct{}
+
+func (*cmdRequestHandlerWithSuccesfulValidatorAndExecutionError) Validate(context.Context, cmdRequest) error {
+	return nil
+}
+func (*cmdRequestHandlerWithSuccesfulValidatorAndExecutionError) Execute(context.Context, cmdRequest) error {
+	return errCmdExecution
+}
+
+type cmdRequestHandlerWithValidatorReturningError struct{}
+
 func (*cmdRequestHandlerWithValidatorReturningError) Validate(context.Context, cmdRequest) error {
 	return errors.New("validation failed")
+}
+func (*cmdRequestHandlerWithValidatorReturningError) Execute(context.Context, cmdRequest) error {
+	return nil
 }
 
 type cmdRequestHandlerWithValidatorReturningErrBadRequest struct{}
 
-func (*cmdRequestHandlerWithValidatorReturningErrBadRequest) Execute(context.Context, cmdRequest) error {
-	return nil
-}
 func (*cmdRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Context, cmdRequest) error {
 	return &ErrBadRequest{err: errors.New("already a bad request")}
+}
+func (*cmdRequestHandlerWithValidatorReturningErrBadRequest) Execute(context.Context, cmdRequest) error {
+	return nil
 }
 
 func TestThatTheRegistrationInterfaceRemovesTheHandler(t *testing.T) {
@@ -197,5 +217,49 @@ func TestThatCommandValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
 		if _, ok := got.(*ErrBadRequest); ok {
 			t.Errorf("got %T wrapping %[1]T unnecessarily", badRequest)
 		}
+	}
+}
+
+func TestThatCommandHandlerIsExecutedWhenRequestValidationIsSuccessful(t *testing.T) {
+	// ARRANGE
+
+	reg := RegisterCommandHandler[cmdRequest](&cmdRequestHandlerWithSuccesfulValidatorAndExecution{})
+	defer reg.Remove()
+
+	// ACT
+
+	request := cmdRequest{}
+	err := Perform(context.Background(), request)
+
+	// ASSERT
+
+	wanted := error(nil)
+	got := err
+	if wanted != got {
+		t.Errorf("wanted %q, got \"%v\"", wanted, got)
+	}
+}
+
+func TestThatCommandHandlerIsExecutionErrorsAreReturnedToTheCaller(t *testing.T) {
+	// ARRANGE
+
+	reg := RegisterCommandHandler[cmdRequest](&cmdRequestHandlerWithSuccesfulValidatorAndExecutionError{})
+	defer reg.Remove()
+
+	// ACT
+
+	request := cmdRequest{}
+	err := Perform(context.Background(), request)
+
+	// ASSERT
+
+	if err == nil {
+		t.Fatal("expected an error, got 'nil'")
+	}
+
+	wanted := errCmdExecution.Error()
+	got := err.Error()
+	if wanted != got {
+		t.Errorf("wanted %q, got %q", wanted, got)
 	}
 }

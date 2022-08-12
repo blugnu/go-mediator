@@ -39,18 +39,18 @@ func Perform[TRequest any](ctx context.Context, request TRequest) error {
 		return &ErrNoHandler{request: request}
 	}
 
-	handler, ok := handlerReg.(CommandHandler[TRequest])
-	if !ok {
-		// This shouldn't actually be possible as the type system should
-		// prevent the registration of a handler of the wrong type.
-		// But just in case...
-		return &ErrInvalidHandler{handler: handler, request: request}
-	}
+	handler, _ := handlerReg.(CommandHandler[TRequest])
 
-	// If the handler also provides a request validator, call that first
-	// and return any error in an ErrBadRequest.
+	// You may be thinking that we should test that the handler we found is
+	// of the correct type, but the magic of generics and the strict type
+	// system takes care of that for us, so there's no need.  \o/
+
+	// If the handler also provides a request validator call that first
 	if validator, ok := handlerReg.(RequestValidator[TRequest]); ok {
-		return validate(validator, ctx, request)
+		err := validate(validator, ctx, request)
+		if err != nil {
+			return err
+		}
 	}
 
 	return handler.Execute(ctx, request)

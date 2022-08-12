@@ -6,12 +6,16 @@ import (
 	"testing"
 )
 
+const qryHandlerResultValue = "result!"
+
 type qryRequest struct{}
 type qryHandler struct{}
 type qryDuplicate struct{}
 
 func (*qryDuplicate) Execute(context.Context, qryRequest) (string, error) { return "", nil }
-func (*qryHandler) Execute(context.Context, qryRequest) (string, error)   { return "", nil }
+func (*qryHandler) Execute(context.Context, qryRequest) (string, error) {
+	return qryHandlerResultValue, nil
+}
 
 type qryRequestHandlerWithValidatorReturningError struct{}
 
@@ -151,5 +155,28 @@ func TestThatQueryValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
 		if _, ok := got.(*ErrBadRequest); ok {
 			t.Errorf("got %T wrapping %[1]T unnecessarily", badRequest)
 		}
+	}
+}
+
+func TestThatQueryResultIsReturnedToCaller(t *testing.T) {
+	// ARRANGE
+
+	reg := RegisterQueryHandler[qryRequest, string](&qryHandler{})
+	defer reg.Remove()
+
+	// ACT
+
+	result, err := Query[qryRequest, string](context.Background(), qryRequest{})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		return
+	}
+
+	// ASSERT
+
+	wanted := qryHandlerResultValue
+	got := result
+	if wanted != got {
+		t.Errorf("wanted %q, got %q", wanted, got)
 	}
 }
