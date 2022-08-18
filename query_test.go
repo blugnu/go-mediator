@@ -6,35 +6,6 @@ import (
 	"testing"
 )
 
-const qryHandlerResultValue = "result!"
-
-type qryRequest struct{}
-type qryHandler struct{}
-type qryDuplicate struct{}
-
-func (*qryDuplicate) Execute(context.Context, qryRequest) (string, error) { return "", nil }
-func (*qryHandler) Execute(context.Context, qryRequest) (string, error) {
-	return qryHandlerResultValue, nil
-}
-
-type qryRequestHandlerWithValidatorReturningError struct{}
-
-func (*qryRequestHandlerWithValidatorReturningError) Execute(context.Context, qryRequest) (string, error) {
-	return "ok", nil
-}
-func (*qryRequestHandlerWithValidatorReturningError) Validate(context.Context, qryRequest) error {
-	return errors.New("validation failed")
-}
-
-type qryRequestHandlerWithValidatorReturningErrBadRequest struct{}
-
-func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Execute(context.Context, qryRequest) (string, error) {
-	return "ok", nil
-}
-func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Context, qryRequest) error {
-	return &ErrBadRequest{err: errors.New("already a bad request")}
-}
-
 func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 
 	if len(queryHandlers) > 0 {
@@ -90,7 +61,7 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerIsNotRegistered(t *testi
 
 	// ACT
 
-	_, err := Query[qryRequest, bool](context.Background(), qryRequest{})
+	_, err := Query[string, bool](context.Background(), "request")
 
 	// ASSERT
 

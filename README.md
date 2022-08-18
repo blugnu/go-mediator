@@ -47,17 +47,18 @@ Requests are submitted to the `mediator` which consults the registry to locate t
 
 - A `Command` handler returns _only_ an `error`
 - A `Query` handler returns *a value* **and** an `error`
+- Both accept a request value (typically a `struct`)
 
 ```go
-// These types are not used in go-mediator, but illustrate
-// the difference between 'Command' and 'Query'
-func Command(context.Context, Request) error
-func Query(context.Context, Request) (Result, error)
+type CommandFunc[TRequest any] func(context.Context, TRequest) error
+type QueryFunc[TRequest any, TResult any] func(context.Context, TRequest) (TResult, error)
 ```
 
 Treating them differently allows code that uses `go-mediator` to benefit from type inference to simplify calls made to `Commands` in a way that isn't (currently?) possible with a `Query`.
 
 Handlers may (*optionally*) implement validation of requests as a separate concern from the handler execution.
+
+_**NOTE:** The terms `Command` and `Query` should not be interpreted as suggesting that `go-mediator` is a database specific pattern or in any way an implementation of or only suitable for `CQRS` systems.  The terms are used for the same purpose as in CQRS: to distinguish between things that are merely 'done' (or not) and things that return results, but are otherwise unrelated._
 
 <br/>
 
@@ -66,7 +67,7 @@ Handlers may (*optionally*) implement validation of requests as a separate conce
 ## 1. Define a Request Type
 Your handlers receive only two values: a context and a request, so everything that your handler needs to satisfy a request must be contained in one or other of those.
 
-The request type is also the public, unique indentity of a handler.  A caller does not know which handler will satisfy a request, only that there can be only one handler for each type of request.  
+The request type is also the public, unique "address" of a handler.  A caller does not know which handler will satisfy a request, only that there can be only one handler for each type of request.  Calls are made via the `mediator` which looks up and calls the handler for type of the request being made.
 
 This means that if you have different handlers that accept the same types of values, then you will need separate and distinct request types for each one, e.g.
 
@@ -246,6 +247,34 @@ As well as providing for the injection of test dependencies into *production* ha
 
 For example, if your application or service produces kafka events, `Commands` that produce an event may be subtituted with a "spy" that enables a test to verify that the correct event was produced to the correct topic, and without even needing kafka to be available to run the test.
 
+For most use cases, mocks are provided for wrapping return values or functions inside a mock handler that captures all requests made of it.  These mocks can be substituted in code to simulate return values and/or to determine how many times the handlers are called and with what requests, over the course of execution of code under test.
+
+For example, to mock a `QueryHandler` that accepts a simple `string` request and returns a constant `string` value, regardless of the request received, with no error:
+
+```golang
+    mock, reg := MockQueryWithReturnValues[string]("result", nil)
+```
+
+Notice again that type inference takes care of the result type, but the request type must be specified, in this case.
+
+For more complex mocks and fakes, `MockCommand()` and `MockQuery()` accept a handler function.  In the most extreme cases, `MockCommandWithValidator()` and `MockQueryWithValidator()` accept a request validator function as well as a handler function.
+
+In all cases, the `Mock...()` functions create the mock and register it with `mediator`, returning a reference to the mock and the registration reference, so that the mock handler can be de-registered (see below).  The mock reference is usually ignored, unless it is needed for tests using the spy functions:
+
+```golang
+    // ARRANGE
+    mock, reg := MockSuccessfulCommand[string]()    // Creates and registers a mock command which completes with a nil error
+    defer reg.Remove()
+
+    // ACT
+    .. exercise code under test ..
+
+    // ASSERT
+    if !mock.WasCalled() {
+        t.Error("command handler for `string` requests was not called")
+    }
+```
+
 <br/>
 
 ## De-and Re-Registering Handlers
@@ -269,4 +298,79 @@ func TestSomethingThatMakesMediatorRequests(t *testing.T) {
     // ASSERT
     ...
 }
+```
+
+<br/>
+
+# Structuring Handler Code
+You may find it useful to organise your code into separate packages for each handler.  You can then leverage the package scoping syntax of `golang` to provide consistent and concise naming for requests and handler types throughout your code.
+
+So you might have a folder (and package) called "services", in which a number of services (handlers) are implemented in sub-folders (packages):
+
+```
+   <myproject root>
+   > services
+       > createProduct
+            handler.go
+       > getProduct
+            handler.go
+       > placeOrder
+            handler.go
+       configure.go
+```
+
+The `handler.go` of one of those services (a handler) might then look something like this: 
+
+```golang
+package getProduct
+
+import (
+    "context"
+    "sql"
+
+    model "myproject/database/models"
+)
+
+type Request struct {
+    ProductId string
+}
+
+type Handler {
+    bb: *sql.DB
+}
+
+func (*Handler) Execute(ctx context.Context, *Request) (*model.Product, error) {
+    // fetch the requested product from the DB
+}
+```
+
+This handler would be registered with `mediator` (e.g. in the `configure.go` file of the service packages) using the corresponding request and result types:
+
+```golang
+    package services
+
+    func Configure(db *sql.DB) {
+        mediator.RegisterQueryHandler[*getProduct.Request, *model.Product](&getProduct.Handler{DB: db})
+    }
+```
+
+Where `db` is a database reference configured and initialised elsewhere, e.g. in your `main.go`, prior to configuring the services.
+
+Finally, the query would be invoked with code similar to:
+
+```golang
+    rq := &getProduct.Request{ 
+        ProductId: id,
+    }
+    product, err := mediator.Query[*getProduct.Request, *model.Product](ctx, rq)
+    if err != nil {
+        ..etc..
+    }
+```
+
+Completing the picture, a test involving a scenario where a product did not exist could use one of the mock utilities to create and register a mock handler to return specific values every time it is called:
+
+```golang
+    _, reg := mediator.MockQueryReturningValues[*getProduct.Request](nil, errors.New("not found"))
+    defer reg.Remove()
 ```
