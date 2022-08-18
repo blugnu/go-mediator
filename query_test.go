@@ -36,9 +36,14 @@ func (*qryRequestHandlerWithValidatorReturningErrBadRequest) Validate(context.Co
 }
 
 func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
+
+	if len(queryHandlers) > 0 {
+		t.Fatal("invalid test: one or more query handlers are already registered")
+	}
+
 	// ARRANGE
 
-	r := RegisterQueryHandler[qryRequest, string](&qryHandler{})
+	_, reg := MockQueryReturningValues[string]("", nil)
 
 	// ACT
 
@@ -47,7 +52,7 @@ func TestThatTheRegistrationInterfaceRemovesTheQueryHandler(t *testing.T) {
 	if wanted != got {
 		t.Errorf("wanted %d handlers, got %d", wanted, got)
 	}
-	r.Remove()
+	reg.Remove()
 
 	// ASSERT
 
@@ -69,12 +74,12 @@ func TestThatRegisterQueryHandlerPanicsWhenHandlerIsAlreadyRegisteredForAType(t 
 	}()
 
 	// Register a handler and remove it when done
-	r := RegisterQueryHandler[qryRequest, string](&qryHandler{})
-	defer r.Remove()
+	_, reg := MockQueryReturningValues[string]("result", nil)
+	defer reg.Remove()
 
 	// ACT - attempt to register another handler for the same request type
 
-	RegisterQueryHandler[qryRequest, string](&qryDuplicate{})
+	MockQueryReturningValues[string]("other", nil)
 
 	// ASSERT (deferred, see above)
 }
@@ -98,13 +103,13 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *tes
 	// ARRANGE
 
 	// Register a handler returning a string
-	r := RegisterQueryHandler[qryRequest, string](&qryHandler{})
-	defer r.Remove()
+	_, reg := MockQueryReturningValues[string]("string response", nil)
+	defer reg.Remove()
 
 	// ACT
 
 	// Request a Query returning a bool
-	_, err := Query[qryRequest, bool](context.Background(), qryRequest{})
+	_, err := Query[string, bool](context.Background(), "request")
 
 	// ASSERT
 
@@ -116,17 +121,17 @@ func TestThatQueryReturnsExpectedErrorWhenRequestHandlerResultIsWrongType(t *tes
 func TestThatQueryValidatorErrorIsReturnedAsErrBadRequest(t *testing.T) {
 	// ARRANGE
 
-	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningError{})
+	_, reg := MockQueryWithValidatorError[string, string](errors.New("error"))
 	defer reg.Remove()
 
 	// ACT
 
-	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
+	_, err := Query[string, string](context.Background(), "request")
 
 	// ASSERT
 
 	if _, ok := err.(*ErrBadRequest); !ok {
-		t.Errorf("wanted %T, got %T (%[1]q)", new(ErrBadRequest), err)
+		t.Errorf("wanted %T, got %T (%[2]q)", new(ErrBadRequest), err)
 	}
 }
 
@@ -134,20 +139,20 @@ func TestThatQueryValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
 	// ARRANGE
 
 	badRequest := &ErrBadRequest{}
-	reg := RegisterQueryHandler[qryRequest, string](&qryRequestHandlerWithValidatorReturningErrBadRequest{})
+	_, reg := MockQueryWithValidatorError[string, string](badRequest)
 	defer reg.Remove()
 
 	// ACT
 
-	_, err := Query[qryRequest, string](context.Background(), qryRequest{})
+	_, err := Query[string, string](context.Background(), "request")
 
 	// ASSERT
 
 	bre, ok := err.(*ErrBadRequest)
 	if !ok {
 		wanted := badRequest
-		got := bre
-		t.Errorf("wanted %T, got %T (%[1]q)", wanted, got)
+		got := err
+		t.Errorf("wanted %T, got %T (%[2]q)", wanted, got)
 	}
 
 	if bre.InnerError() != nil {
@@ -161,12 +166,13 @@ func TestThatQueryValidatorErrorsDoNotWrapErrBadRequestErrors(t *testing.T) {
 func TestThatQueryResultIsReturnedToCaller(t *testing.T) {
 	// ARRANGE
 
-	reg := RegisterQueryHandler[qryRequest, string](&qryHandler{})
+	wanted := "result"
+	_, reg := MockQueryReturningValues[string](wanted, nil)
 	defer reg.Remove()
 
 	// ACT
 
-	result, err := Query[qryRequest, string](context.Background(), qryRequest{})
+	result, err := Query[string, string](context.Background(), "request")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -174,7 +180,6 @@ func TestThatQueryResultIsReturnedToCaller(t *testing.T) {
 
 	// ASSERT
 
-	wanted := qryHandlerResultValue
 	got := result
 	if wanted != got {
 		t.Errorf("wanted %q, got %q", wanted, got)

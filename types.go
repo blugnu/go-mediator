@@ -20,6 +20,10 @@ func (t handlerType) Name() string {
 	}
 }
 
+type CommandFunc[TRequest any] func(context.Context, TRequest) error
+type QueryFunc[TRequest any, TResponse any] func(context.Context, TRequest) (TResponse, error)
+type ValidatorFunc[TRequest any] func(context.Context, TRequest) error
+
 // CommandHandler[TRequest] is the interface to be implemented by Command handlers
 type CommandHandler[TRequest any] interface {
 	Execute(context.Context, TRequest) error
