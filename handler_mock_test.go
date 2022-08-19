@@ -12,7 +12,7 @@ func TestMockHandler(t *testing.T) {
 		t.Fatal("invalid test: one or more handlers are already registered")
 	}
 
-	mock, reg := MockHandler(func(ctx context.Context, s string) (string, error) { return "", nil })
+	mock, reg := MockHandler[string, string]()
 	defer reg.Remove()
 
 	t.Run("registers the handler", func(t *testing.T) {

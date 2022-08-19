@@ -13,7 +13,7 @@ func TestMockReceiver(t *testing.T) {
 		t.Fatal("invalid test: one or more receivers are already registered")
 	}
 
-	mock, reg := MockSuccessfulReceiver[string]()
+	mock, reg := MockReceiver[string]()
 	defer reg.Remove()
 
 	t.Run("registers the receiver", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestMockReceiver(t *testing.T) {
 	})
 
 	t.Run("captures that uncalled mock was not called", func(t *testing.T) {
-		mock, reg := MockSuccessfulReceiver[int]()
+		mock, reg := MockReceiver[int]()
 		defer reg.Remove()
 
 		wantedWc := false

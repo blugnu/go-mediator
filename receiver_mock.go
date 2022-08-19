@@ -11,27 +11,27 @@ type mockreceiver[TData any] struct {
 	execute  func(context.Context, TData) error
 }
 
-func MockReceiver[TData any](cmd ReceiverFunc[TData]) (*mockreceiver[TData], *reg) {
-	h := &mockreceiver[TData]{execute: cmd}
+func MockReceiver[TData any]() (*mockreceiver[TData], *reg) {
+	return MockReceiverReturningError[TData](nil)
+}
+
+func MockReceiverWithFunc[TData any](executor ReceiverFunc[TData]) (*mockreceiver[TData], *reg) {
+	h := &mockreceiver[TData]{execute: executor}
 	r := RegisterReceiver[TData](h)
 	return h, r
 }
 
-func MockReceiverWithValidator[TData any](cmd ReceiverFunc[TData], validator ValidatorFunc[TData]) (*mockreceiver[TData], *reg) {
+func MockReceiverWithValidator[TData any](executor ReceiverFunc[TData], validator ValidatorFunc[TData]) (*mockreceiver[TData], *reg) {
 	h := &mockreceiver[TData]{
-		execute:  cmd,
+		execute:  executor,
 		validate: validator,
 	}
 	r := RegisterReceiver[TData](h)
 	return h, r
 }
 
-func MockSuccessfulReceiver[TData any]() (*mockreceiver[TData], *reg) {
-	return MockReceiver(func(context.Context, TData) error { return nil })
-}
-
 func MockReceiverReturningError[TData any](err error) (*mockreceiver[TData], *reg) {
-	return MockReceiver(func(context.Context, TData) error { return err })
+	return MockReceiverWithFunc(func(context.Context, TData) error { return err })
 }
 
 func MockReceiverWithValidatorError[TData any](err error) (*mockreceiver[TData], *reg) {

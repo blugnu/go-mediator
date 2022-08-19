@@ -13,7 +13,7 @@ type cmdRequestWithResult struct {
 func TestThatTheRegistrationInterfaceRemovesTheReceiver(t *testing.T) {
 	// ARRANGE
 
-	_, r := MockSuccessfulReceiver[string]()
+	_, r := MockReceiver[string]()
 
 	// ACT
 
@@ -44,13 +44,13 @@ func TestThatRegisterReceiverPanicsWhenDataTypeReceiverIsAlreadyRegistered(t *te
 	}()
 
 	// Register a handler and remove it when done
-	_, r := MockSuccessfulReceiver[string]()
+	_, r := MockReceiver[string]()
 	defer r.Remove()
 
 	// ACT
 
 	// Attempt to register ANOTHER handler for the SAME request type
-	MockSuccessfulReceiver[string]()
+	MockReceiver[string]()
 
 	// ASSERT (deferred, see above)
 }
@@ -77,7 +77,10 @@ func TestThatResultsCanBeReturnedViaFieldsInAByRefRequestType(t *testing.T) {
 	original := "original"
 	modified := "modified"
 
-	_, reg := MockReceiver(func(ctx context.Context, rq *cmdRequestWithResult) error { rq.result = modified; return nil })
+	_, reg := MockReceiverWithFunc(func(ctx context.Context, rq *cmdRequestWithResult) error {
+		rq.result = modified
+		return nil
+	})
 	defer reg.Remove()
 
 	// ACT
@@ -103,7 +106,10 @@ func TestThatResultsCannotBeReturnedViaFieldsInAByValueRequestType(t *testing.T)
 	original := "original"
 	modified := "modified"
 
-	_, reg := MockReceiver(func(ctx context.Context, rq cmdRequestWithResult) error { rq.result = modified; return nil })
+	_, reg := MockReceiverWithFunc(func(ctx context.Context, rq cmdRequestWithResult) error {
+		rq.result = modified
+		return nil
+	})
 	defer reg.Remove()
 
 	// ACT

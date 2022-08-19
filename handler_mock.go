@@ -8,7 +8,11 @@ type mockhandler[TRequest any, TResult any] struct {
 	execute  func(context.Context, TRequest) (TResult, error)
 }
 
-func MockHandler[TRequest any, TResult any](cmd HandlerFunc[TRequest, TResult]) (*mockhandler[TRequest, TResult], *reg) {
+func MockHandler[TRequest any, TResult any]() (*mockhandler[TRequest, TResult], *reg) {
+	return MockHandlerReturningError[TRequest, TResult](nil)
+}
+
+func MockHandlerWithFunc[TRequest any, TResult any](cmd HandlerFunc[TRequest, TResult]) (*mockhandler[TRequest, TResult], *reg) {
 	h := &mockhandler[TRequest, TResult]{execute: cmd}
 	r := RegisterHandler[TRequest, TResult](h)
 	return h, r
@@ -23,8 +27,12 @@ func MockHandlerWithValidator[TRequest any, TResult any](qry HandlerFunc[TReques
 	return h, r
 }
 
+func MockHandlerReturningError[TRequest any, TResult any](err error) (*mockhandler[TRequest, TResult], *reg) {
+	return MockHandlerWithFunc(func(context.Context, TRequest) (TResult, error) { return *new(TResult), err })
+}
+
 func MockHandlerReturningValues[TRequest any, TResult any](result TResult, err error) (*mockhandler[TRequest, TResult], *reg) {
-	return MockHandler(func(context.Context, TRequest) (TResult, error) { return result, err })
+	return MockHandlerWithFunc(func(context.Context, TRequest) (TResult, error) { return result, err })
 }
 
 func MockHandlerWithValidatorError[TRequest any, TResult any](err error) (*mockhandler[TRequest, TResult], *reg) {
