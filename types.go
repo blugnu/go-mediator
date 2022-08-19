@@ -2,41 +2,23 @@ package mediator
 
 import "context"
 
-type handlerType int
+type ReceiverFunc[TData any] func(context.Context, TData) error
+type HandlerFunc[TRequest any, TResult any] func(context.Context, TRequest) (TResult, error)
+type ValidatorFunc[TInput any] func(context.Context, TInput) error
 
-const (
-	command handlerType = iota
-	query
-)
-
-func (t handlerType) Name() string {
-	switch t {
-	case command:
-		return "command"
-	case query:
-		return "query"
-	default:
-		return "<undefined>"
-	}
+// Receiver[TData] is the interface to be implemented by a receiver
+type Receiver[TData any] interface {
+	Execute(context.Context, TData) error
 }
 
-type CommandFunc[TRequest any] func(context.Context, TRequest) error
-type QueryFunc[TRequest any, TResponse any] func(context.Context, TRequest) (TResponse, error)
-type ValidatorFunc[TRequest any] func(context.Context, TRequest) error
-
-// CommandHandler[TRequest] is the interface to be implemented by Command handlers
-type CommandHandler[TRequest any] interface {
-	Execute(context.Context, TRequest) error
-}
-
-// QueryHandler[TRequest, TResult] is the interface to be implemented by Query handlers
-type QueryHandler[TRequest any, TResult any] interface {
+// Handler[TRequest, TResult] is the interface to be implemented by a handler
+type Handler[TRequest any, TResult any] interface {
 	Execute(context.Context, TRequest) (TResult, error)
 }
 
-// RequestValidator[TRequest] is an optional interface that may be implemented
-// by Command and Query handlers, to separate the concerns of validating a
-// request from those of executing or fulfilling the request.
-type RequestValidator[TRequest any] interface {
-	Validate(context.Context, TRequest) error
+// Validator[TInput] is an optional interface that may be implemented
+// by both receivers and handlers, to separate the validation of the data
+// or request (the input) from the execution the receiver or handler itself.
+type Validator[TInput any] interface {
+	Validate(context.Context, TInput) error
 }
