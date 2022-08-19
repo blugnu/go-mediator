@@ -24,6 +24,24 @@ func Test_NoHandlerError(t *testing.T) {
 	}
 }
 
+func Test_NoReceiverError(t *testing.T) {
+
+	// ARRANGE
+	data := "request"
+
+	// ACT
+
+	err := &NoReceiverError{data: data}
+
+	// ASSERT
+
+	wanted := fmt.Sprintf("no receiver for '%T'", data)
+	got := err.Error()
+	if got != wanted {
+		t.Errorf("wanted %q, got %q", wanted, got)
+	}
+}
+
 func Test_InvalidHandlerError(t *testing.T) {
 
 	// ARRANGE

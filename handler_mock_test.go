@@ -29,7 +29,7 @@ func TestMockHandler(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	t.Run("NumRequests() captures number of requests processed", func(t *testing.T) {
+	t.Run("captures number of requests handled", func(t *testing.T) {
 		wanted := 1
 		got := mock.NumRequests()
 		if wanted != got {
@@ -37,7 +37,7 @@ func TestMockHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("Requests() returns a copy of the processed requests", func(t *testing.T) {
+	t.Run("returns a copy of the handled requests", func(t *testing.T) {
 		requests := mock.Requests()
 
 		if reflect.ValueOf(requests).UnsafePointer() == reflect.ValueOf(mock.requests).UnsafePointer() {
@@ -49,12 +49,29 @@ func TestMockHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("WasCalled() captures whether the mock was called", func(t *testing.T) {
-		wanted := true
-		got := mock.WasCalled()
+	t.Run("captures that a handler was called", func(t *testing.T) {
+		wantedWc := true
+		wantedWnc := false
+		gotWc := mock.WasCalled()
+		gotWnc := mock.WasNotCalled()
 
-		if wanted != got {
-			t.Errorf("wanted %v, got %v", wanted, got)
+		if wantedWc != gotWc || wantedWnc != gotWnc {
+			t.Errorf("called / not called: wanted %v / %v, got %v / %v", wantedWc, wantedWnc, gotWc, gotWnc)
 		}
 	})
+
+	t.Run("captures that a handler was not called", func(t *testing.T) {
+		mock, reg := MockHandler[int, int]()
+		defer reg.Remove()
+
+		wantedWc := false
+		wantedWnc := true
+		gotWc := mock.WasCalled()
+		gotWnc := mock.WasNotCalled()
+
+		if wantedWc != gotWc || wantedWnc != gotWnc {
+			t.Errorf("called / not called: wanted %v / %v, got %v / %v", wantedWc, wantedWnc, gotWc, gotWnc)
+		}
+	})
+
 }
