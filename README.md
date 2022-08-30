@@ -1,12 +1,12 @@
 <div align="center" style="margin-bottom:20px">
   <img src=".assets/banner.png" alt="go-mediator" />
   <div align="center">
-    <a href="https://github.com/deltics/go-mediator/actions/workflows/qa.yml"><img alt="build-status" src="https://github.com/deltics/go-mediator/actions/workflows/qa.yml/badge.svg?branch=master&style=flat-square"/></a>
-    <a href="https://goreportcard.com/report/github.com/deltics/go-mediator" ><img alt="go report" src="https://goreportcard.com/badge/github.com/deltics/go-mediator"/></a>
-    <a><img alt="go version >= 1.18" src="https://img.shields.io/badge/go%20version-%3E=1.18-61CFDD.svg?style=flat-square"/></a>
-    <a href="https://github.com/deltics/go-mediator/blob/master/LICENCE"><img alt="MIT License" src="https://img.shields.io/github/license/deltics/go-mediator?color=%234275f5&style=flat-square"/></a>
-    <a href="https://coveralls.io/github/deltics/go-mediator?branch=master"><img alt="coverage" src="https://img.shields.io/coveralls/github/deltics/go-mediator?style=flat-square"/></a>
-    <a href="https://pkg.go.dev/github.com/deltics/go-mediator"><img alt="docs" src="https://pkg.go.dev/badge/github.com/deltics/go-mediator"/></a>
+    <a href="https://github.com/blugnu/go-mediator/actions/workflows/qa.yml"><img alt="build-status" src="https://github.com/blugnu/go-mediator/actions/workflows/qa.yml/badge.svg?branch=master&style=flat-square"/></a>
+    <a href="https://goreportcard.com/report/github.com/blugnu/go-mediator" ><img alt="go report" src="https://goreportcard.com/badge/github.com/blugnu/go-mediator"/></a>
+    <a><img alt="go version >= 1.18" src="https://img.shields.io/github/go-mod/go-version/blugnu/go-mediator?style=flat-square"/></a>
+    <a href="https://github.com/blugnu/go-mediator/blob/master/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/blugnu/go-mediator?color=%234275f5&style=flat-square"/></a>
+    <a href="https://coveralls.io/github/blugnu/go-mediator?branch=master"><img alt="coverage" src="https://img.shields.io/coveralls/github/blugnu/go-mediator?style=flat-square"/></a>
+    <a href="https://pkg.go.dev/github.com/blugnu/go-mediator"><img alt="docs" src="https://pkg.go.dev/badge/github.com/blugnu/go-mediator"/></a>
   </div>
 </div>
 
@@ -462,7 +462,7 @@ import (
     "context"
     "database/sql"
 
-    "github.com/deltics/go-mediator"
+    "github.com/blugnu/go-mediator"
 
     model "myproject/database/models"
 )
